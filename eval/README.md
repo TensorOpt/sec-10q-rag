@@ -10,6 +10,9 @@ The prompt is in [PROMPTS.md](../PROMPTS.md#probe-evaluation-prompt). Findings a
 | `expected.jsonl` | Expected answer and acceptance rule per question. Written and committed before any answer, citation or retrieved chunk in `probes/results.jsonl` was opened. |
 | `fetch_sources.sh` | Downloads the EDGAR documents the expected answers come from. Needs `SEC_USER_AGENT`. |
 | `numparse.py`, `test_numparse.py` | Figure parser used by the mechanical checks, with its tests (`uv run pytest eval`). |
+| `checks.py`, `test_checks.py` | Mechanical checks (context recall, groundedness, consistency) and their tests. `uv run python eval/checks.py` rewrites the two files below. |
+| `checks.jsonl` | One row per run (63). |
+| `consistency.jsonl` | One row per question (21). |
 
 ## How `expected.jsonl` was built
 
@@ -48,6 +51,40 @@ and the run metadata (`timestamp`, `model`, `k`). Run date: 2026-11-21.
 - "Last quarter" is read as of the run date. For all five filers that is the quarter ended 2026-09-30.
 - The outcome is judged on the figure the question asks for. A wrong figure in supporting context (a prior-year
   comparison, a growth rate) is quoted in the evidence and sent to human review, without changing the outcome.
+
+## Mechanical checks
+
+These read figures only. They cannot tell whether a figure is offered as the answer or as context, or whether its
+period label is right. They are evidence for the labeller and a cross-check on the labels, not labels.
+
+Figures are parsed with `numparse.py` after the CLI's `[n]` citation markers are removed (a marker can sit between
+a number and its scale, as in "$201,944 [5] million"). A bare table cell is read in the filing's unit (millions for
+MSFT, AMZN and JPM, thousands for CSV and NRC).
+
+`checks.jsonl`, per run:
+
+- `recall`: `all`, `some` or `none` of the expected in-corpus figures are in a retrieved chunk of the right filing;
+  `n/a` when the expected answer is not in the corpus.
+- `expected[].figure_rank`: rank of the first retrieved chunk of the right filing that contains the figure.
+  `line_rank`: rank of the first chunk that contains one of the verbatim source lines in `expected.jsonl` (stricter).
+  `cited`: whether a chunk holding the figure was cited.
+  `stated`: `scaled` if the answer gives the figure with a scale word or as an exact dollar or per-share amount,
+  `bare` if it only quotes the unscaled table cell, null if it does not give it.
+- `acceptable_stated`, `distractors_stated`: the labelled-only figures and the known wrong figures that the answer
+  mentions. A distractor mentioned as context (a prior-year comparison) still shows up here.
+- `grounded`: `yes` if every figure in the answer is in a cited chunk or is derived (a difference, sum, ratio or
+  percentage change of two figures that are); `uncited` if the unsupported figures are all in retrieved chunks the
+  answer did not cite; `no` if some figure is in no retrieved chunk; `no_figures` if the answer states none.
+  `ungrounded` lists the unsupported figures.
+- `refusal_language`: the opening of the answer says the excerpts lack something.
+
+`consistency.jsonl`, per question: whether the three runs state the same expected figures (`same_expected_stated`),
+open with the same figure (`same_lead_figure`, compared on three significant digits whatever the scale), and how many
+of the amounts mentioned appear in every run. `consistent` is true when the first two hold.
+
+Known limits: a JPMorgan table headed "in billions" would be read in millions; a figure that happens to equal an
+unrelated cell in a cited chunk counts as grounded; the check is per answer, not per sentence, so a figure is
+grounded if any cited chunk has it.
 
 ## Outcome labels (per run)
 

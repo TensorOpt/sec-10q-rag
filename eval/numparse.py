@@ -54,7 +54,8 @@ def parse_figures(text: str, table: bool = False) -> list[Figure]:
         if scale:
             factor = SCALES[(scale["word"] or scale["letter"] or scale["unit"]).lower()]
             # A lone letter only counts as a scale after a currency amount ("$92.3B", not "3 B shares").
-            if scale["letter"] and not has_currency:
+            # Nor does a unit note after a year ("Q3 2025 (in millions)") make the year an amount.
+            if (scale["letter"] or scale["unit"] and _YEAR.match(digits)) and not has_currency:
                 scale = None
             else:
                 value, quantum, end = value * factor, quantum * factor, scale.end()
