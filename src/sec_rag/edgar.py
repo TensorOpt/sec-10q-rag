@@ -5,7 +5,7 @@ import time
 from dataclasses import dataclass
 from datetime import date
 
-import httpx
+import httpx2
 
 SEARCH_URL = "https://efts.sec.gov/LATEST/search-index"
 ARCHIVES_URL = "https://www.sec.gov/Archives/edgar/data"
@@ -26,9 +26,9 @@ class Filing:
     url: str
 
 
-def make_http_client(user_agent: str) -> httpx.Client:
+def make_http_client(user_agent: str) -> httpx2.Client:
     """SEC requires a User-Agent that identifies the requester."""
-    return httpx.Client(headers={"User-Agent": user_agent}, timeout=60, follow_redirects=True)
+    return httpx2.Client(headers={"User-Agent": user_agent}, timeout=60, follow_redirects=True)
 
 
 def _company_name(display_name: str) -> str:
@@ -53,11 +53,11 @@ def _to_filing(hit: dict) -> Filing:
 
 
 class Edgar:
-    def __init__(self, http: httpx.Client, delay: float = SEC_REQUEST_DELAY):
+    def __init__(self, http: httpx2.Client, delay: float = SEC_REQUEST_DELAY):
         self._http = http
         self._delay = delay
 
-    def _get(self, url: str, **params) -> httpx.Response:
+    def _get(self, url: str, **params) -> httpx2.Response:
         time.sleep(self._delay)
         response = self._http.get(url, params=params or None)
         response.raise_for_status()

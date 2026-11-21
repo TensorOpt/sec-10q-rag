@@ -1,7 +1,7 @@
 import json
 from datetime import date
 
-import httpx
+import httpx2
 import pytest
 
 from sec_rag.edgar import Edgar, Filing
@@ -27,7 +27,7 @@ def search_response(hits, total=None):
 
 
 def edgar_with(handler):
-    return Edgar(httpx.Client(transport=httpx.MockTransport(handler)), delay=0)
+    return Edgar(httpx2.Client(transport=httpx2.MockTransport(handler)), delay=0)
 
 
 def test_search_10q_parses_hits_into_filings():
@@ -35,7 +35,7 @@ def test_search_10q_parses_hits_into_filings():
 
     def handler(request):
         requests.append(request)
-        return httpx.Response(200, json=search_response([hit("0001193125-26-436133", "msft-20260930.htm")]))
+        return httpx2.Response(200, json=search_response([hit("0001193125-26-436133", "msft-20260930.htm")]))
 
     filings = edgar_with(handler).search_10q(date(2026, 9, 1), date(2026, 11, 30))
 
@@ -59,7 +59,7 @@ def test_search_10q_parses_hits_into_filings():
 def test_search_10q_filters_by_cik_and_skips_non_primary_documents():
     def handler(request):
         assert request.url.params["ciks"] == "0000789019,0001018724"
-        return httpx.Response(200, json=search_response([
+        return httpx2.Response(200, json=search_response([
             hit("0001193125-26-436133", "msft-20260930.htm"),
             hit("0001193125-26-436133", "msft-ex31.htm", file_type="EX-31.1"),
         ]))
@@ -74,7 +74,7 @@ def test_search_10q_paginates_until_total_and_respects_limit():
 
     def handler(request):
         offset = int(request.url.params.get("from", 0))
-        return httpx.Response(200, json=search_response(pages[offset], total=105))
+        return httpx2.Response(200, json=search_response(pages[offset], total=105))
 
     edgar = edgar_with(handler)
 
@@ -85,7 +85,7 @@ def test_search_10q_paginates_until_total_and_respects_limit():
 def test_ciks_for_tickers_is_case_insensitive_and_rejects_unknown():
     tickers = {"0": {"cik_str": 789019, "ticker": "MSFT", "title": "MICROSOFT CORP"},
                "1": {"cik_str": 1018724, "ticker": "AMZN", "title": "AMAZON COM INC"}}
-    edgar = edgar_with(lambda request: httpx.Response(200, content=json.dumps(tickers)))
+    edgar = edgar_with(lambda request: httpx2.Response(200, content=json.dumps(tickers)))
 
     assert edgar.ciks_for_tickers(["msft", "AMZN"]) == [789019, 1018724]
     with pytest.raises(ValueError, match="NOPE"):
@@ -95,11 +95,11 @@ def test_ciks_for_tickers_is_case_insensitive_and_rejects_unknown():
 def test_fetch_returns_text_and_raises_on_http_error():
     def handler(request):
         if request.url.path.endswith("missing.htm"):
-            return httpx.Response(404)
-        return httpx.Response(200, text="<html>10-Q</html>")
+            return httpx2.Response(404)
+        return httpx2.Response(200, text="<html>10-Q</html>")
 
     edgar = edgar_with(handler)
 
     assert edgar.fetch("https://www.sec.gov/ok.htm") == "<html>10-Q</html>"
-    with pytest.raises(httpx.HTTPStatusError):
+    with pytest.raises(httpx2.HTTPStatusError):
         edgar.fetch("https://www.sec.gov/missing.htm")
