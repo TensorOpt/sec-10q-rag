@@ -6,9 +6,9 @@ reproduced with `uv run python eval/checks.py` and `uv run python eval/summarize
 
 ## Summary
 
-- No run gave a confident wrong answer. None of the eight failure modes the questions were written to trigger
-  (wrong period, wrong column, segment for total, non-GAAP for GAAP, invented figure, wrong units) showed up in the
-  figure asked for.
+- No run gave a confident wrong answer. None of the failure modes the questions were written to trigger (wrong
+  period, wrong column, misread wording, segment for total, non-GAAP for GAAP, invented figure, wrong comparison,
+  wrong units) showed up as a wrong figure.
 - The system failed in a different way: retrieval. For 6 of the 17 questions whose answer is in the corpus, the
   top 8 chunks did not contain the expected figure (5 questions) or contained one of three (1 question). The model
   then said the figure was missing. That is a wrong result for the user even though the model did what it was told.
@@ -230,7 +230,8 @@ Clearest example, q14 run 1:
 ### Not in the corpus (q03, q15, q16, q17): not reproduced
 
 All 12 runs said the corpus does not have the answer. None gave a figure as the answer, from memory or from
-another company. `eval/checks.jsonl` has no figure in any of the 63 answers that is absent from the retrieved chunks.
+another company. Across all 63 answers, `eval/checks.jsonl` has no figure that is absent from the retrieved chunks,
+apart from differences and percentages computed from figures that are in them.
 
 Example, q17 run 1, the question with the most tempting wrong figure in the corpus:
 
@@ -275,13 +276,13 @@ says "$38.4 million". So the units failure mode has one question of evidence, no
 | Pattern | Questions | Evidence |
 |---|---|---|
 | A phrase in the question matches another company's filing | q01 | "Q3 2026" is Amazon's wording. All 8 chunks are Amazon's. |
-| "Last quarter" matches boilerplate | q02, q09, q10, q14 and others | Carriage Services chunk 325 (credit facility covenants: "as of the last day of each fiscal quarter") is retrieved for 12 of the 14 questions that say "last quarter", at rank 1 for 7 of them, and for 0 of the other 7 questions. |
+| "Last quarter" matches boilerplate, which takes slots in the top 8 | q02, q09, q10, q14 and others | Carriage Services chunk 325 (credit facility covenants: "as of the last day of each fiscal quarter") is retrieved for 12 of the 14 questions that say "last quarter", at rank 1 for 7 of them, and for 0 of the other 7 questions. |
 | The question's word is not the filing's word | q09, q10, q14 | "profit" vs "Net income"; "top line" vs "Total revenue"; "revenue" vs "Total net revenue" in a 185-chunk filing |
 | Chunk boundary | q02 | The income statement is split two lines before "Total revenue". |
 | One top-8 list for several companies | q19 | 1 of 3 figures retrieved, at rank 8 |
 
 Two more questions were close to failing the same way: in q04 and q05 the chunk with the answer was at rank 7 of
-8, behind three JPMorgan and three NRC Health chunks.
+8, behind five chunks from JPMorgan and NRC Health.
 
 ## Limitations
 
@@ -292,9 +293,9 @@ Two more questions were close to failing the same way: in q04 and q05 the chunk 
   failure that shows 3/3 was observed once.
 - The labeller is a Claude model from the same family as the answering model, and it also wrote the expected
   answers and the rules. Shared blind spots would not show up. No label was checked by a person.
-- A failure that did not reproduce may only mean these phrasings did not trigger it. In particular, 6 questions
+- A failure that did not reproduce may only mean these phrasings did not trigger it. In particular, 5 questions
   never reached the generation step they were meant to test because retrieval failed first: the period, wording
-  and GAAP traps in q01, q02, q09, q10 and q14 are untested, not passed.
+  and GAAP traps in q01, q02, q09, q10 and q14 are untested, not passed. q19 reached it for one company of three.
 - The units check rests on q20 alone (see above).
 - The mechanical checks compare figures only. They do not check period or basis labels, and they count a figure as
   grounded if any cited chunk contains that number. The one labelling slip found (q12 run 1) was found by reading,
