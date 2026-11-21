@@ -28,6 +28,7 @@ def test_a_citation_marker_does_not_split_a_number_from_its_scale():
 def test_refusal_language_is_read_from_the_opening():
     assert refusal_language("**The search results don't include Microsoft's revenue for Q3 2026.**")
     assert refusal_language("The excerpts do not contain NVIDIA's revenue.")
+    assert refusal_language("**The filings don't say how much OpenAI lost last quarter.** OpenAI is private.")
     assert not refusal_language("Amazon's operating income was $28.1 billion in Q3 2026 [1].")
 
 

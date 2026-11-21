@@ -27,7 +27,7 @@ TABLE_UNIT = {
 _CITATION = re.compile(r"\s?(?:\[\d+\])+")
 _REFUSAL = re.compile(
     r"\b(?:don[’']t|do not|doesn[’']t|does not|isn[’']t|is not|aren[’']t|are not|cannot|can[’']t|not|no)\b"
-    r"[^.\n]{0,80}\b(?:includ|contain|provid|available|shown|cover|report|disclos|state|give|answer|determin)",
+    r"[^.\n]{0,80}\b(?:includ|contain|provid|available|shown|cover|report|disclos|state|give|answer|determin|say|mention)",
     re.IGNORECASE,
 )
 

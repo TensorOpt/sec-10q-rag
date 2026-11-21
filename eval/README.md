@@ -13,6 +13,9 @@ The prompt is in [PROMPTS.md](../PROMPTS.md#probe-evaluation-prompt). Findings a
 | `checks.py`, `test_checks.py` | Mechanical checks (context recall, groundedness, consistency) and their tests. `uv run python eval/checks.py` rewrites the two files below. |
 | `checks.jsonl` | One row per run (63). |
 | `consistency.jsonl` | One row per question (21). |
+| `labels.jsonl` | Outcome, cause and one line of evidence per run (63), written by the labeller (a Claude model). |
+| `summarize.py` | Joins labels and checks, rolls runs up to questions, prints the tables in `EVAL.md` and writes `review.jsonl`. |
+| `review.jsonl` | Runs that need human review: every `confident_wrong`, every run where label and mechanical checks disagree, every run with a wrong figure or label in supporting context. |
 
 ## How `expected.jsonl` was built
 
@@ -96,6 +99,23 @@ grounded if any cited chunk has it.
 | `false_refusal` | The expected answer is in the corpus, and the answer says it is not available and gives no acceptable figure. |
 | `hedged_ok` | Does not fully answer, but everything stated is accurate and correctly labelled, and the reason given for not answering fully is true of the retrieved chunks. |
 | `hedged_not_ok` | Hedges where the expected figure was in the retrieved chunks, or hedges around a wrong figure, or lists candidates without identifying the expected one. |
+
+Clarification added after the answers were read, because `false_refusal` and `hedged_ok` overlapped: a run is a
+refusal when it gives none of the expected figures, and a hedge when it gives some of them (one company out of
+three) or gives the expected figure but leaves the question open. A refusal that truthfully reports a retrieval
+miss is still `false_refusal`: the label describes the system's result, not whether the generator behaved well.
+
+Each `labels.jsonl` row has `outcome`, `cause` (a list, empty for `correct` and `correct_refusal`), `evidence`
+(a verbatim quote from the answer and the source line it was checked against), and where needed `note` and
+`context_issue`. A script checked that every answer quote is verbatim.
+
+## Label and check disagreements
+
+`summarize.py` flags a run when: it is labelled `correct` but does not state every expected figure, or an expected
+figure was not retrieved, or a figure in it is supported only by an uncited or by no retrieved chunk; it is
+labelled `confident_wrong` or `false_refusal` but states the expected figure; it is labelled a refusal but does not
+open with refusal language, or the reverse; its cause is `retrieval_miss` but every expected figure was retrieved, or
+the reverse; its cause is `memory` but every figure is in a cited chunk.
 
 ## Cause labels (for every run that is not `correct` or `correct_refusal`)
 
