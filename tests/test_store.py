@@ -30,6 +30,16 @@ def test_search_matches_word_stems(store):
     assert hits[0].text == "Net sales increased 11% to $180 billion."
 
 
+def test_search_prefers_exact_phrases_over_repeated_single_words():
+    s = Store(":memory:")
+    s.add(MSFT, [
+        "Total revenue | 92,279 | 77,673 | Net income | 36,629 | 27,747 | Diluted earnings per share | 4.90",
+        "What drove revenue? Revenue from cloud grew; revenue from devices fell; total headcount was flat.",
+    ])
+
+    assert s.search("What was the total revenue?", k=1)[0].text.startswith("Total revenue")
+
+
 def test_search_respects_k_and_handles_queries_without_words(store):
     assert len(store.search("revenue", k=1)) == 1
     assert store.search("?!", k=5) == []

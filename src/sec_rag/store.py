@@ -16,6 +16,17 @@ CREATE VIRTUAL TABLE IF NOT EXISTS chunks USING fts5(
 );
 """
 COMPANY_WEIGHT = 5.0  # a question naming a company should prefer that company's chunks
+STOPWORDS = frozenset(
+    "a an and are as at be by did do does for from had has have how in is it its of on or s that the their "
+    "this to was were what when where which who why will with".split()
+)
+
+
+def _match_expression(query: str) -> str:
+    """OR of the query's words plus adjacent word pairs, so line items like "total revenue" rank higher."""
+    words = [w for w in re.findall(r"\w+", query.lower()) if w not in STOPWORDS]
+    terms = words + [f"{a} {b}" for a, b in zip(words, words[1:])]
+    return " OR ".join(f'"{t}"' for t in terms)
 
 
 @dataclass(frozen=True)
@@ -41,10 +52,9 @@ class Store:
                                  [(filing.company, chunk, filing.accession) for chunk in chunks])
 
     def search(self, query: str, k: int = 8) -> list[Hit]:
-        words = re.findall(r"\w+", query.lower())
-        if not words:
+        match = _match_expression(query)
+        if not match:
             return []
-        match = " OR ".join(f'"{w}"' for w in words)
         rows = self._db.execute(
             """SELECT f.accession, f.cik, f.company, f.filed, f.period, f.url, c.text
                FROM chunks c JOIN filings f ON f.accession = c.accession
