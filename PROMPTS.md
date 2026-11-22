@@ -143,3 +143,61 @@ Also persist this prompt to @PROMPTS.md
 
 Commit and push everything to main.
 ```
+
+## Probe round 2 prompt
+
+The prompt for the second probe round (questions in `probes/round2/questions.txt`, results in `probes/round2/results.jsonl`):
+
+```
+TO-164 probe round 2. Observation only: change nothing in src/
+or tests/, and use the existing database.
+
+0. If the naive-v1 tag isn't on the remote, tag the last commit
+   before the probe results were added and push the tag.
+1. Commit the questions below to probes/round2/questions.txt
+   before running anything.
+2. Ask each question exactly as written, 3 times. Don't rephrase,
+   drop or add questions. Save every run to
+   probes/round2/results.jsonl: question, run, answer, cited
+   sources, the model that answered, and the retrieved chunks
+   (rank, filing, chunk id, full text).
+3. For numeric questions, add the matching XBRL value from
+   data.sec.gov companyfacts (concept, period, unit) where one
+   exists. Don't grade the answers.
+4. Commit: chore(TO-164): add round 2 probe results. Push.
+
+Report one table: question, the figure or claim each run gave,
+cited source, XBRL reference.
+
+Period
+- What was Amazon's free cash flow last quarter?
+- What was JPMorgan's cash flow from operating activities in the third quarter of 2026?
+- What was NRC Health's operating cash flow last quarter?
+
+Computed
+- What was Amazon's operating margin last quarter?
+- What share of Microsoft's revenue came from Microsoft Cloud last quarter?
+- What was JPMorgan's efficiency ratio last quarter?
+- By how many dollars did Amazon's net sales grow year over year last quarter?
+
+Change
+- By what percentage did Carriage Services' revenue change compared with the same quarter last year?
+- Did NRC Health's net income rise or fall last quarter compared with a year earlier, and by how much?
+
+False premise
+- Why did Microsoft's revenue fall last quarter?
+- Why did JPMorgan report a net loss last quarter?
+- How much did Amazon's AWS segment lose last quarter?
+
+Which figure
+- What was Carriage Services' total debt at the end of last quarter?
+- How many NRC Health shares were outstanding?
+
+Facts outside the tables
+- What did JPMorgan agree to pay for the Apple Card portfolio?
+- Who signed Carriage Services' 10-Q as principal executive officer?
+
+--
+
+Also persist to @PROMPTS.md
+```
