@@ -1,0 +1,27 @@
+Period
+- What was Amazon's free cash flow last quarter?
+- What was JPMorgan's cash flow from operating activities in the third quarter of 2026?
+- What was NRC Health's operating cash flow last quarter?
+
+Computed
+- What was Amazon's operating margin last quarter?
+- What share of Microsoft's revenue came from Microsoft Cloud last quarter?
+- What was JPMorgan's efficiency ratio last quarter?
+- By how many dollars did Amazon's net sales grow year over year last quarter?
+
+Change
+- By what percentage did Carriage Services' revenue change compared with the same quarter last year?
+- Did NRC Health's net income rise or fall last quarter compared with a year earlier, and by how much?
+
+False premise
+- Why did Microsoft's revenue fall last quarter?
+- Why did JPMorgan report a net loss last quarter?
+- How much did Amazon's AWS segment lose last quarter?
+
+Which figure
+- What was Carriage Services' total debt at the end of last quarter?
+- How many NRC Health shares were outstanding?
+
+Facts outside the tables
+- What did JPMorgan agree to pay for the Apple Card portfolio?
+- Who signed Carriage Services' 10-Q as principal executive officer?
