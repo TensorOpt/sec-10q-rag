@@ -13,9 +13,9 @@ about SEC 10-Q filings filed this autumn.
 - Commit and push as you go.
 ```
 
-## Probe run prompt
+## Probe round 1 prompt
 
-The prompt for the failure-mode probe run (tag `naive-v1`, results in `probes/results.jsonl`):
+The prompt for the first failure-mode probe round (tag `naive-v1`, questions in `probes/round1/questions.txt`, results in `probes/round1/results.jsonl`; the results moved there from `probes/results.jsonl`):
 
 ```
 TO-164 probe run. Observation only: change nothing in src/ or tests/.
@@ -80,70 +80,6 @@ Units
 Also save this prompt to @PROMPTS.md, commit it, and the results also separately, push to main.
 ```
 
-## Probe evaluation prompt
-
-The prompt for labelling the probe results (expected answers in `eval/expected.jsonl`, findings in `EVAL.md`):
-
-```
-TO-164: label the probe results and write EVAL.md.
-
-Input: probes/results.jsonl (build naive-v1). Don't change src/,
-tests/ or probes/.
-
-1. Expected answers first. Read only the question field. For each
-   question, work out the correct answer from the filing on EDGAR
-   and from data.sec.gov XBRL: figure(s), period, unit, where it
-   sits in the filing, and whether it's in the ingested corpus at
-   all. Check the XBRL references in results.jsonl; don't trust
-   them. Write an acceptance rule per question: what counts as
-   correct, and whether a correct answer must flag an ambiguity
-   (e.g. fiscal vs calendar quarter). Commit eval/expected.jsonl
-   before opening any answer.
-
-2. Mechanical checks, in a script under eval/. Test the number
-   parser (commas, parentheses, millions vs billions, rounding).
-   - Context recall: does a retrieved chunk contain the expected
-     figure, and at what rank?
-   - Groundedness: does each figure in the answer appear in a
-     cited chunk?
-   - Consistency: same figure across the 3 runs?
-
-3. Label every run against its acceptance rule:
-   - Outcome: correct, confident_wrong, correct_refusal,
-     false_refusal, hedged_ok, hedged_not_ok
-   - Cause, for wrong answers: retrieval_miss, misread (column,
-     period, segment, basis, units), memory
-   - One line of evidence quoting the answer and the source
-   Put every confident_wrong, and every case where your label and
-   the mechanical checks disagree, under "Needs human review".
-
-4. Write EVAL.md:
-   - What ran: build tag, models that answered, corpus, number of
-     questions and runs, date
-   - Method, stating that the labeller is a Claude model
-   - Per-question table and outcome counts. The question is the
-     unit, not the run.
-   - Grounded × correct cross-tab
-   - Per failure mode: reproduced in 3/3, 2/3, 1/3 or not, with
-     the clearest example (question, answer excerpt, cited
-     excerpt, correct figure and its source)
-   - Limitations: the questions were chosen to break the system,
-     so report no accuracy figure; small n; the labeller is from
-     the same model family; a failure that doesn't reproduce may
-     just be phrasing
-   - Needs human review
-   Write plainly. No em dashes.
-
-Use conventional commits, e.g. docs(TO-164): add probe evaluation
-findings. Commit after each step and push.
-
---
-
-Also persist this prompt to @PROMPTS.md
-
-Commit and push everything to main.
-```
-
 ## Probe round 2 prompt
 
 The prompt for the second probe round (questions in `probes/round2/questions.txt`, results in `probes/round2/results.jsonl`):
@@ -200,4 +136,70 @@ Facts outside the tables
 --
 
 Also persist to @PROMPTS.md
+```
+
+## Probe evaluation prompt
+
+The prompt for labelling the results of both probe rounds (expected answers in `eval/expected.jsonl`, findings in `EVAL.md`). It was first run on round 1 only and later edited to cover both rounds:
+
+```
+TO-164: label the results of both probe rounds and write EVAL.md.
+
+Input: probes/round1/results.jsonl and probes/round2/results.jsonl
+(build naive-v1; questions in probes/round*/questions.txt). Don't
+change src/, tests/ or probes/. Evaluate both rounds the same way
+and tag every row in eval/ with its round.
+
+1. Expected answers first. Read only the question field. For each
+   question in both rounds, work out the correct answer from the
+   filing on EDGAR and from data.sec.gov XBRL: figure(s), period,
+   unit, where it sits in the filing, and whether it's in the
+   ingested corpus at all. Check the XBRL references in both
+   results.jsonl files; don't trust them. Write an acceptance rule per question: what counts as
+   correct, and whether a correct answer must flag an ambiguity
+   (e.g. fiscal vs calendar quarter). Commit eval/expected.jsonl
+   before opening any answer.
+
+2. Mechanical checks, in a script under eval/. Test the number
+   parser (commas, parentheses, millions vs billions, rounding).
+   - Context recall: does a retrieved chunk contain the expected
+     figure, and at what rank?
+   - Groundedness: does each figure in the answer appear in a
+     cited chunk?
+   - Consistency: same figure across the 3 runs?
+
+3. Label every run against its acceptance rule:
+   - Outcome: correct, confident_wrong, correct_refusal,
+     false_refusal, hedged_ok, hedged_not_ok
+   - Cause, for wrong answers: retrieval_miss, misread (column,
+     period, segment, basis, units), memory
+   - One line of evidence quoting the answer and the source
+   Put every confident_wrong, and every case where your label and
+   the mechanical checks disagree, under "Needs human review".
+
+4. Write EVAL.md:
+   - What ran: build tag, models that answered, corpus, number of
+     questions and runs per round, date
+   - Method, stating that the labeller is a Claude model
+   - Per-question table and outcome counts, per round and
+     combined. The question is the unit, not the run.
+   - Grounded × correct cross-tab
+   - Per failure mode: reproduced in 3/3, 2/3, 1/3 or not, with
+     the clearest example (question, answer excerpt, cited
+     excerpt, correct figure and its source)
+   - Limitations: the questions were chosen to break the system,
+     so report no accuracy figure; small n; the labeller is from
+     the same model family; a failure that doesn't reproduce may
+     just be phrasing
+   - Needs human review
+   Write plainly. No em dashes.
+
+Use conventional commits, e.g. docs(TO-164): add probe evaluation
+findings. Commit after each step and push.
+
+--
+
+Also persist this prompt to @PROMPTS.md
+
+Commit and push everything to main.
 ```
