@@ -137,3 +137,69 @@ def test_consistency_compares_lead_figures_whatever_their_scale():
 
 def test_a_unit_note_after_a_year_is_not_an_amount():
     assert parse_figures("Operating income for Q3 2025 (in millions) was $17,422.")[0].value == 17422
+
+
+# --- round 2: percentages, computed answers, text answers ----------------------------------------------------
+
+AMZN = "0001018724-26-000040"
+SALES = target(201944e6, 1e6, "201,944", AMZN, "Total net sales | 180,169 | 201,944")
+INCOME = target(28076e6, 1e6, "28,076", AMZN, "Operating income | 17,422 | 28,076")
+MARGIN = {"id": "m", "expected": [{"label": "operating margin", "value": 13.903, "quantum": 0.001, "unit": "percent",
+                                   "kind": "percent", "as_filed": "13.9%, computed", "sources": []}],
+          "inputs": [INCOME, SALES],
+          "distractors": [{"value": 9.67, "quantum": 0.01, "unit": "percent", "kind": "percent", "as_filed": "9.7%",
+                           "what": "prior year", "misread": "column"}]}
+STATEMENT = chunk(1, AMZN, "(in millions)\nTotal net sales | 180,169 | 201,944\nOperating income | 17,422 | 28,076")
+
+
+def test_a_percentage_target_is_matched_against_percentages_only():
+    margin = MARGIN["expected"][0]
+    assert stated(margin, answer_figures("an operating margin of about 13.9%"), 1e6) == "scaled"
+    assert stated(margin, answer_figures("roughly 14%"), 1e6) == "scaled"
+    assert stated(margin, answer_figures("$13.9 billion, up 9.7%"), 1e6) is None
+
+
+def test_a_computed_answer_is_grounded_and_recall_is_judged_on_its_inputs():
+    row = check_run(run("Operating income of $28,076 million [1] on net sales of $201,944 million [1] is 13.9%.",
+                        [STATEMENT], [1]), MARGIN)
+    assert row["recall"] == "all" and [r["figure_rank"] for r in row["inputs"]] == [1, 1]
+    assert row["expected_stated"] and row["grounded"] == "yes" and row["lead_figure"] == "13.9%"
+    miss = check_run(run("The margin was 9.7%.", [chunk(1, AMZN, "Total net sales | 180,169 | 201,944")], [1]), MARGIN)
+    assert miss["recall"] == "some" and not miss["expected_stated"] and miss["grounded"] == "no"
+    assert [d["misread"] for d in miss["distractors_stated"]] == ["column"]
+
+
+def test_derived_figures_can_combine_three_inputs():
+    ocf, capex, proceeds, fcf = answer_figures("$42,422 million less $77,259 million plus $1,381 million is "
+                                               "-$33,456 million")
+    assert derived(fcf, [ocf, capex, proceeds])
+    assert not derived(fcf, [ocf, proceeds])
+
+
+def test_any_one_expected_figure_is_enough_when_the_record_says_so():
+    record = {"id": "c", "expected_match": "any", "expected": [
+        target(582e3, 1e3, "582, computed", None),
+        {"label": "percent", "value": 14.12, "quantum": 0.01, "unit": "percent", "kind": "percent",
+         "as_filed": "14.1%", "sources": []}]}
+    assert check_run(run("Net income rose about 14%.", [], []), record)["expected_stated"]
+    assert not check_run(run("Net income fell 53%.", [], []), record)["expected_stated"]
+    del record["expected_match"]
+    assert not check_run(run("Net income rose about 14%.", [], []), record)["expected_stated"]
+
+
+def test_a_text_target_is_found_in_the_answer_and_in_a_chunk():
+    signer = {"label": "signer", "kind": "text", "text": "John Enwright", "unit": "text", "as_filed": "John Enwright",
+              "sources": [{"accession": CSV, "line": "Date: | November 5, 2026 | /s/ John Enwright"}]}
+    record = {"id": "s", "expected": [signer],
+              "distractors": [{"kind": "text", "text": "Metzger", "unit": "text", "as_filed": "Steven D. Metzger",
+                               "what": "COO", "misread": "basis"}]}
+    block = chunk(3, CSV, "SIGNATURES\nDate: | November 5, 2026 | /s/ John Enwright\n(Principal Financial Officer)")
+    row = check_run(run("It was signed by John Enwright [3], not Steven D. Metzger.", [block], [3]), record)
+    assert row["expected"][0]["stated"] == "text" and row["expected"][0]["figure_rank"] == 3 and row["recall"] == "all"
+    assert row["expected"][0]["cited"] and [d["what"] for d in row["distractors_stated"]] == ["COO"]
+    assert check_run(run("The excerpts do not show a signature.", [], []), record)["recall"] == "none"
+
+
+def test_a_question_with_no_expected_figure_has_no_recall_and_states_nothing():
+    row = check_run(run("The excerpts do not state a purchase price.", [STATEMENT], []), {"id": "r", "expected": []})
+    assert row["recall"] == "n/a" and not row["expected_stated"] and row["grounded"] == "no_figures"

@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from numparse import Figure, matches, parse_figures  # noqa: E402
 
 ROOT = Path(__file__).parent.parent
+ROUNDS = {1: ROOT / "probes" / "round1" / "results.jsonl", 2: ROOT / "probes" / "round2" / "results.jsonl"}
 # Unit of each ingested filing's tables (probes/round1/README.md). Bare table cells are read in this unit.
 TABLE_UNIT = {
     "0001193125-26-436133": 1e6,  # MSFT
@@ -46,9 +47,21 @@ def refusal_language(answer: str) -> bool:
     return bool(_REFUSAL.search(strip_citations(answer)[:400]))
 
 
+def is_text(target: dict) -> bool:
+    """A target that is a name, not a number (who signed the report)."""
+    return target.get("kind") == "text"
+
+
 def chunk_supports(claim: Figure, chunk: dict) -> bool:
     scale = TABLE_UNIT.get(chunk["filing"]["accession"], 1)
     return any(matches(claim, source, scale) for source in parse_figures(chunk["text"], table=True))
+
+
+def chunk_holds(target: dict, chunk: dict) -> bool:
+    """True when the chunk contains an expected figure, or the expected name."""
+    if is_text(target):
+        return target["text"].lower() in chunk["text"].lower()
+    return chunk_supports(as_figure(target), chunk)
 
 
 def first_rank(claim: Figure, chunks: list[dict], accessions: set[str] | None = None) -> int | None:
@@ -66,7 +79,8 @@ def _close(claim: Figure, value: float) -> bool:
 
 
 def derived(claim: Figure, others: list[Figure], table_unit: float = 1) -> bool:
-    """True when the figure is the difference, sum, ratio or percentage change of two of the other figures.
+    """True when the figure is the difference, sum, ratio or percentage change of two of the other figures,
+    or a sum and difference of three (free cash flow: a - b + c).
 
     The caller passes the figures that are supported by a cited chunk, so a figure is not excused by its own
     difference from another unsupported one.
@@ -89,17 +103,28 @@ def derived(claim: Figure, others: list[Figure], table_unit: float = 1) -> bool:
             return True
         elif b and claim.kind == "number" and _close(claim, a / b):
             return True
+    if claim.kind != "percent":
+        for (fa, a), (fb, b), (fc, c) in permutations(values, 3):
+            if len({id(fa), id(fb), id(fc)}) == 3 and (_close(claim, a - b + c) or _close(claim, a - b - c)
+                                                        or _close(claim, a + b + c)):
+                return True
     return False
 
 
 def as_figure(expected: dict) -> Figure:
-    return Figure(expected["value"], expected["quantum"], "money", True, expected["as_filed"])
+    kind = "percent" if expected.get("unit") == "percent" else "money"
+    return Figure(expected["value"], expected["quantum"], kind, True, expected["as_filed"])
 
 
-def stated(target: dict, figures: list[Figure], table_unit: float) -> str | None:
-    """How the answer states a target figure: "scaled" (with a scale word, or as an exact dollar or per-share
-    amount), "bare" (an unscaled number equal to the table cell, as when the answer quotes a table row) or None."""
+def stated(target: dict, figures: list[Figure], table_unit: float, answer: str = "") -> str | None:
+    """How the answer states a target: "scaled" (a figure with a scale word, an exact dollar, per-share or share
+    amount, or a percentage), "bare" (an unscaled number equal to the table cell, as when the answer quotes a
+    table row), "text" (an expected name appears in the answer) or None."""
+    if is_text(target):
+        return "text" if target["text"].lower() in answer.lower() else None
     source = as_figure(target)
+    if source.kind == "percent":
+        return "scaled" if any(matches(f, source) for f in figures if f.kind == "percent") else None
     amounts = [f for f in figures if f.kind != "percent"]
     if target["unit"] != "USD":  # per-share amounts carry no scale
         return "scaled" if any(matches(f, source) for f in amounts) else None
@@ -118,11 +143,13 @@ def target_unit(target: dict) -> float:
 
 
 def check_run(run: dict, expected: dict) -> dict:
+    answer = strip_citations(run["answer"])
     figures = answer_figures(run["answer"])
     chunks = run["retrieved_chunks"]
     cited_ids = {c["chunk_id"] for c in run["cited_sources"]}
     cited = [c for c in chunks if c["chunk_id"] in cited_ids]
-    unit = next((target_unit(t) for t in expected["expected"] if t["sources"]), 1e6)  # the question's filing unit
+    targets = expected["expected"] + expected.get("inputs", []) + expected.get("acceptable_if_labelled", [])
+    unit = next((target_unit(t) for t in targets if t.get("sources")), 1e6)  # the question's filing unit
 
     # Groundedness: does each figure in the answer appear in a cited chunk?
     in_cited = [any(chunk_supports(f, c) for c in cited) for f in figures]
@@ -139,40 +166,47 @@ def check_run(run: dict, expected: dict) -> dict:
     grounded = ("no_figures" if not figures else "yes" if not ungrounded
                 else "uncited" if all(r["retrieved_rank"] for r in ungrounded) else "no")
 
-    # Context recall: does a retrieved chunk contain the expected figure, and at what rank?
-    expected_rows = []
-    for target in expected["expected"]:
-        accessions = {s["accession"] for s in target["sources"]}
-        lines = [s["line"].strip("… ") for s in target["sources"]]
+    def row(target):
+        """Where a target sits in the retrieved chunks, and whether the answer states it."""
+        sources = target.get("sources", [])
+        accessions = {s["accession"] for s in sources}
+        lines = [s["line"].strip("… ") for s in sources]
         line_ranks = [c["rank"] for c in chunks if any(line in c["text"] for line in lines)]
-        figure_rank = first_rank(as_figure(target), chunks, accessions) if accessions else None
-        holders = {c["chunk_id"] for c in chunks if c["filing"]["accession"] in accessions
-                   and chunk_supports(as_figure(target), c)}
-        expected_rows.append({
-            "label": target["label"], "in_corpus": bool(target["sources"]),
-            "figure_rank": figure_rank, "line_rank": min(line_ranks, default=None),
-            "cited": bool(holders & cited_ids),
-            "stated": stated(target, figures, target_unit(target)),
-        })
-    in_corpus = [r for r in expected_rows if r["in_corpus"]]
+        holders = [c for c in chunks if accessions and c["filing"]["accession"] in accessions and chunk_holds(target, c)]
+        return {
+            "label": target["label"], "in_corpus": bool(sources),
+            "figure_rank": min((c["rank"] for c in holders), default=None), "line_rank": min(line_ranks, default=None),
+            "cited": bool({c["chunk_id"] for c in holders} & cited_ids),
+            "stated": stated(target, figures, target_unit(target) if sources else unit, answer),
+        }
+
+    # Context recall: does a retrieved chunk contain the expected figure, and at what rank? For a computed answer
+    # the figure is in no chunk, so recall is judged on its inputs.
+    expected_rows = [row(t) for t in expected["expected"]]
+    input_rows = [row(t) for t in expected.get("inputs", [])]
+    in_corpus = [r for r in input_rows or expected_rows if r["in_corpus"]]
     found = [r for r in in_corpus if r["figure_rank"]]
     recall = "n/a" if not in_corpus else "all" if len(found) == len(in_corpus) else "some" if found else "none"
+    enough = any if expected.get("expected_match") == "any" else all
 
     def hits(key):
         out = []
         for target in expected.get(key, []):
-            mode = stated(target, figures, target_unit(target) if target.get("sources") else unit)
+            mode = stated(target, figures, target_unit(target) if target.get("sources") else unit, answer)
             if mode:
                 out.append({"what": target.get("label") or target["what"], "as_filed": target["as_filed"],
                             "mode": mode, **({"misread": target["misread"]} if "misread" in target else {})})
         return out
 
-    lead = next((f for f in figures if f.kind != "percent"), None)
+    # The lead figure is the first of the kind the question asks for: a percentage or an amount.
+    wants_percent = bool(expected["expected"]) and expected["expected"][0].get("unit") == "percent"
+    lead = next((f for f in figures if (f.kind == "percent") == wants_percent), None)
     return {
         "id": expected["id"], "run": run["run"],
         "refusal_language": refusal_language(run["answer"]),
-        "recall": recall, "expected": expected_rows,
-        "expected_stated": bool(expected_rows) and all(r["stated"] for r in expected_rows),
+        "recall": recall, "recall_ranks": [r["figure_rank"] for r in in_corpus],
+        "expected": expected_rows, "inputs": input_rows,
+        "expected_stated": bool(expected_rows) and enough(bool(r["stated"]) for r in expected_rows),
         "acceptable_stated": hits("acceptable_if_labelled"), "distractors_stated": hits("distractors"),
         "grounded": grounded, "n_figures": len(figures), "ungrounded": [r["raw"] for r in ungrounded],
         "lead_figure": lead.raw if lead else None, "lead_value": lead.value if lead else None,
@@ -194,7 +228,7 @@ def consistency(question_id: str, runs: list[dict]) -> dict:
     sets = [{_digits(f["value"]) for f in r["figures"] if f["kind"] != "percent"} for r in runs]
     union, common = set.union(*sets), set.intersection(*sets)
     return {
-        "id": question_id, "runs": len(runs),
+        "id": question_id, "round": runs[0].get("round"), "runs": len(runs),
         "same_expected_stated": len(set(patterns)) == 1, "expected_stated": [r["expected_stated"] for r in runs],
         "same_lead_figure": same_lead, "lead_figures": [r["lead_figure"] for r in runs],
         "amounts_in_every_run": len(common), "amounts_in_any_run": len(union),
@@ -210,9 +244,13 @@ def main() -> None:
         row = json.loads(line)
         expected[row["question"]] = row
     rows = []
-    for line in (ROOT / "probes" / "round1" / "results.jsonl").read_text().splitlines():
-        run = json.loads(line)
-        rows.append(check_run(run, expected[run["question"]]))
+    for round_number, path in ROUNDS.items():
+        for line in path.read_text().splitlines():
+            run = json.loads(line)
+            record = expected[run["question"]]
+            assert record["round"] == round_number, (record["id"], round_number)
+            check = check_run(run, record)
+            rows.append({"id": check.pop("id"), "round": round_number, **check})
     by_question: dict[str, list[dict]] = {}
     for row in rows:
         by_question.setdefault(row["id"], []).append(row)
@@ -224,7 +262,7 @@ def main() -> None:
     print("id   run recall figure_rank line_rank cited stated grounded refusal lead")
     for r in rows:
         e = r["expected"]
-        print(f"{r['id']}  {r['run']}   {r['recall']:<5} {str([x['figure_rank'] for x in e]):<12} "
+        print(f"{r['id']}  {r['run']}   {r['recall']:<5} {str(r['recall_ranks']):<12} "
               f"{str([x['line_rank'] for x in e]):<12} {str([int(x['cited']) for x in e]):<9} "
               f"{str([x['stated'] or '-' for x in e]):<28} {r['grounded']:<10} {str(r['refusal_language']):<5} "
               f"{r['lead_figure']}")

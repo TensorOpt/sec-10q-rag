@@ -162,3 +162,17 @@ def test_a_year_with_a_currency_sign_or_scale_is_a_figure():
 
 def test_raw_text_is_kept_for_evidence():
     assert one("revenue was $92.3 billion [1]").raw == "$92.3 billion"
+
+
+def test_a_percentage_claim_matches_a_bare_table_cell_but_never_in_the_table_unit():
+    cell, = parse_figures("Overhead ratio | 54", table=True)
+    assert matches(one("54%"), cell, bare_scale=1e6)
+    assert not matches(one("54%"), one("$54 million"))
+    assert not matches(one("$54 million"), one("54%"), bare_scale=1e6)
+    assert not matches(one("52%"), cell)
+
+
+def test_a_scale_word_after_accounting_parentheses_still_applies():
+    figure = one("Free cash flow was about $(42.4) billion")
+    assert figure.value == pytest.approx(-42.4e9) and figure.scaled and figure.raw == "$(42.4) billion"
+    assert values("(4,923) | 282", table=True) == [-4923, 282]

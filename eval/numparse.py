@@ -49,7 +49,7 @@ def parse_figures(text: str, table: bool = False) -> list[Figure]:
         quantum = 10.0 ** -decimals
         has_currency = "$" in prefix
 
-        scale = _SCALE.match(text, end) if not m["close"] else None
+        scale = _SCALE.match(text, end)
         percent = None if scale else _PERCENT.match(text, end)
         if scale:
             factor = SCALES[(scale["word"] or scale["letter"] or scale["unit"]).lower()]
@@ -88,9 +88,15 @@ def matches(claim: Figure, source: Figure, bare_scale: float = 1) -> bool:
     bare_scale is the unit of the filing's tables (1e6 for "in millions"), tried for source figures
     that carry no scale of their own.
     """
-    if (claim.kind == "percent") != (source.kind == "percent"):
+    if claim.kind == "percent":
+        if source.kind == "money":
+            return False
+        readings = [(source.value, source.quantum)]  # "54%" matches a bare cell "54", never in the table unit
+    elif source.kind == "percent":
         return False
-    for value, quantum in _readings(source, bare_scale):
+    else:
+        readings = _readings(source, bare_scale)
+    for value, quantum in readings:
         if quantum > claim.quantum * (1 + 1e-9):
             continue
         if abs(abs(claim.value) - abs(value)) <= claim.quantum / 2 * (1 + 1e-9):
