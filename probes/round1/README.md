@@ -1,7 +1,8 @@
-# Failure-mode probes (TO-164)
+# Probe round 1 (TO-164)
 
 Observation run against tag `naive-v1`. Nothing in `src/` or `tests/` was changed.
-The prompt is in [PROMPTS.md](../PROMPTS.md#probe-run-prompt).
+The prompt is in [PROMPTS.md](../../PROMPTS.md#probe-round-1-prompt). `questions.txt` lists the questions as asked:
+the prompt's "Units" placeholder resolved to the two thousands-reporting filers below. It was written after the run.
 
 ## Corpus
 

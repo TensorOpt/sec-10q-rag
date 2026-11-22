@@ -1,0 +1,36 @@
+Period (Microsoft's fiscal year ends June 30)
+- What was Microsoft's revenue in Q3 2026?
+- What was Microsoft's revenue last quarter?
+- What was Microsoft's revenue for fiscal year 2026?
+
+Column (current vs prior year, quarter vs nine months)
+- What was Amazon's operating income in the third quarter of 2025?
+- What was Amazon's operating income in the third quarter of 2026?
+- What were Amazon's net sales for the nine months ended September 30, 2026?
+- What was JPMorgan's net interest income for the first nine months of 2026?
+
+Wording
+- What was Amazon's revenue last quarter?
+- How much profit did Amazon make last quarter?
+- What was Microsoft's top line last quarter?
+
+Segment vs total
+- What was Microsoft's cloud revenue last quarter?
+- What was Amazon's operating income last quarter?
+
+GAAP vs non-GAAP
+- What was Microsoft's earnings per share last quarter?
+- What was JPMorgan's revenue last quarter?
+
+Not in the corpus, but mentioned in it
+- What was NVIDIA's revenue last quarter?
+- What was Alphabet's cloud revenue last quarter?
+- How much did OpenAI lose last quarter?
+
+Comparison
+- Which made more operating income last quarter, Microsoft or Amazon?
+- Rank Microsoft, Amazon and JPMorgan by net income for the quarter ended September 30, 2026.
+
+Units
+- What was Carriage Services' revenue last quarter?
+- What was NRC Health's revenue last quarter?

@@ -1,7 +1,7 @@
 # Probe evaluation (TO-164)
 
-Labels for the failure-mode probe run in `probes/results.jsonl`. Every number below is computed from files in this
-repository (`probes/results.jsonl`, `eval/expected.jsonl`, `eval/checks.jsonl`, `eval/labels.jsonl`) and can be
+Labels for the failure-mode probe run in `probes/round1/results.jsonl`. Every number below is computed from files in this
+repository (`probes/round1/results.jsonl`, `eval/expected.jsonl`, `eval/checks.jsonl`, `eval/labels.jsonl`) and can be
 reproduced with `uv run python eval/checks.py` and `uv run python eval/summarize.py`.
 
 ## Summary
@@ -23,7 +23,7 @@ reproduced with `uv run python eval/checks.py` and `uv run python eval/summarize
 
 | | |
 |---|---|
-| Build | `naive-v1`, as named in `probes/README.md`. No such git tag exists on the remote as of this evaluation. `src/` was last changed in commit `0f21a35`. |
+| Build | `naive-v1`, as named in `probes/round1/README.md`. No such git tag exists on the remote as of this evaluation. `src/` was last changed in commit `0f21a35`. |
 | Answering model | `claude-opus-5-5` requested and returned for all 63 runs (the `model` field of each API response). Every run ended with `end_turn`. |
 | Retrieval | SQLite FTS5 BM25, `k=8`, company name weighted 5x, question words OR-ed with adjacent word pairs |
 | Corpus | Five 10-Qs for the period ended 2026-09-30: Microsoft (59 chunks), Amazon (61), JPMorgan (185), Carriage Services (40), NRC Health (22). 367 chunks. |
@@ -38,11 +38,11 @@ The labeller is a Claude model, from the same family as the model that answered.
 the acceptance rules, the mechanical checks and the labels. Nothing here was checked by a person.
 
 1. Expected answers (`eval/expected.jsonl`) were written from the filings on EDGAR and from `data.sec.gov`
-   companyfacts, reading only the `question`, `category` and `xbrl_reference` fields of `probes/results.jsonl`.
+   companyfacts, reading only the `question`, `category` and `xbrl_reference` fields of `probes/round1/results.jsonl`.
    The file was committed (`a6fe6c0`) before any answer, citation or retrieved chunk was opened. Each record has the
    figure, period, unit, basis, the verbatim line in the filing, the known wrong figures a misread would produce,
    and an acceptance rule.
-2. All 19 XBRL references in `probes/results.jsonl` match companyfacts on value, period and accession. One is
+2. All 19 XBRL references in `probes/round1/results.jsonl` match companyfacts on value, period and accession. One is
    stale for its question: the NVIDIA reference ($96,221 million, quarter ended 2026-07-26) was superseded by an
    8-K on 2026-11-17 reporting $115,844 million for the quarter ended 2026-10-25. It does not affect the label,
    because NVIDIA is not in the corpus and the expected response is a refusal.
@@ -300,7 +300,7 @@ Two more questions were close to failing the same way: in q04 and q05 the chunk 
 - The mechanical checks compare figures only. They do not check period or basis labels, and they count a figure as
   grounded if any cited chunk contains that number. The one labelling slip found (q12 run 1) was found by reading,
   not by a check.
-- The `naive-v1` tag named in `probes/README.md` is not on the remote, so the build cannot be pinned to a tag here.
+- The `naive-v1` tag named in `probes/round1/README.md` is not on the remote, so the build cannot be pinned to a tag here.
 
 ## Needs human review
 
@@ -321,4 +321,4 @@ Judgement calls a reviewer may want to overrule:
 3. q01: the model used a fact that is not in the retrieved chunks (Microsoft's fiscal year end). The system prompt
    says to use only the search results. The fact is right and no figure is involved, so it was not labelled `memory`.
 4. q21: labelled correct although the units conversion was not exercised.
-5. q15: the XBRL reference in `probes/results.jsonl` is stale (see Method). Worth correcting in a later probe run.
+5. q15: the XBRL reference in `probes/round1/results.jsonl` is stale (see Method). Worth correcting in a later probe run.

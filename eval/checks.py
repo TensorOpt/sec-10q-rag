@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from numparse import Figure, matches, parse_figures  # noqa: E402
 
 ROOT = Path(__file__).parent.parent
-# Unit of each ingested filing's tables (probes/README.md). Bare table cells are read in this unit.
+# Unit of each ingested filing's tables (probes/round1/README.md). Bare table cells are read in this unit.
 TABLE_UNIT = {
     "0001193125-26-436133": 1e6,  # MSFT
     "0001018724-26-000040": 1e6,  # AMZN
@@ -210,7 +210,7 @@ def main() -> None:
         row = json.loads(line)
         expected[row["question"]] = row
     rows = []
-    for line in (ROOT / "probes" / "results.jsonl").read_text().splitlines():
+    for line in (ROOT / "probes" / "round1" / "results.jsonl").read_text().splitlines():
         run = json.loads(line)
         rows.append(check_run(run, expected[run["question"]]))
     by_question: dict[str, list[dict]] = {}

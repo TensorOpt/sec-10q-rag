@@ -1,6 +1,6 @@
 # Probe round 2 (TO-164)
 
-Same database (`sec10q.db`: MSFT, AMZN, JPM, CSV, NRC; see [../README.md](../README.md#corpus)) and same
+Same database (`sec10q.db`: MSFT, AMZN, JPM, CSV, NRC; see [../round1/README.md](../round1/README.md#corpus)) and same
 harness as round 1: each question in `questions.txt` asked 3 times, exactly as written, `k=8`, through
 `Store.search` and `answer()` from a scratch script outside the repo. Nothing in `src/` or `tests/` changed.
 The prompt is in [PROMPTS.md](../../PROMPTS.md#probe-round-2-prompt).

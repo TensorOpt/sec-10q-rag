@@ -1,13 +1,13 @@
 # Probe evaluation (TO-164)
 
-Labels the failure-mode probe run in `probes/results.jsonl` (build `naive-v1`).
+Labels the failure-mode probe run in `probes/round1/results.jsonl` (build `naive-v1`).
 The prompt is in [PROMPTS.md](../PROMPTS.md#probe-evaluation-prompt). Findings are in [EVAL.md](../EVAL.md).
 
 ## Files
 
 | File | What it is |
 |---|---|
-| `expected.jsonl` | Expected answer and acceptance rule per question. Written and committed before any answer, citation or retrieved chunk in `probes/results.jsonl` was opened. |
+| `expected.jsonl` | Expected answer and acceptance rule per question. Written and committed before any answer, citation or retrieved chunk in `probes/round1/results.jsonl` was opened. |
 | `fetch_sources.sh` | Downloads the EDGAR documents the expected answers come from. Needs `SEC_USER_AGENT`. |
 | `numparse.py`, `test_numparse.py` | Figure parser used by the mechanical checks, with its tests (`uv run pytest eval`). |
 | `checks.py`, `test_checks.py` | Mechanical checks (context recall, groundedness, consistency) and their tests. `uv run python eval/checks.py` rewrites the two files below. |
@@ -19,11 +19,11 @@ The prompt is in [PROMPTS.md](../PROMPTS.md#probe-evaluation-prompt). Findings a
 
 ## How `expected.jsonl` was built
 
-Only three fields of `probes/results.jsonl` were read: `question`, `category` and `xbrl_reference` (plus `xbrl_note`),
+Only three fields of `probes/round1/results.jsonl` were read: `question`, `category` and `xbrl_reference` (plus `xbrl_note`),
 and the run metadata (`timestamp`, `model`, `k`). Run date: 2026-11-21.
 
 1. The five ingested 10-Qs were downloaded from EDGAR and converted with the project's own `html_to_text` and
-   `chunk_text`. The chunk counts (59, 61, 185, 40, 22) match `probes/README.md`, so the text is the corpus text.
+   `chunk_text`. The chunk counts (59, 61, 185, 40, 22) match `probes/round1/README.md`, so the text is the corpus text.
 2. Each expected figure was read from the filing text. Every `sources[].line` is copied verbatim from that text by a
    script that fails if the line does not contain the figure. `chunk_index` is the 0-based position of the chunk(s)
    holding that line within the filing.
