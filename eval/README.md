@@ -1,21 +1,26 @@
 # Probe evaluation (TO-164)
 
-Labels the failure-mode probe run in `probes/round1/results.jsonl` (build `naive-v1`).
-The prompt is in [PROMPTS.md](../PROMPTS.md#probe-evaluation-prompt). Findings are in [EVAL.md](../EVAL.md).
+Labels the two failure-mode probe rounds in `probes/round1/results.jsonl` and `probes/round2/results.jsonl`
+(build `naive-v1`). The prompt is in [PROMPTS.md](../PROMPTS.md#probe-evaluation-prompt). Findings are in
+[EVAL.md](../EVAL.md).
+
+Round 1 is questions q01 to q21, round 2 is q22 to q37. Every row in every file here has a `round` field.
+Round 1 was evaluated first, on 2026-11-21. Round 2 was added on 2026-11-22 with the same method; the round 1
+expected answers and labels were carried over unchanged and the mechanical checks were re-run on both rounds.
 
 ## Files
 
 | File | What it is |
 |---|---|
-| `expected.jsonl` | Expected answer and acceptance rule per question. Written and committed before any answer, citation or retrieved chunk in `probes/round1/results.jsonl` was opened. |
+| `expected.jsonl` | Expected answer and acceptance rule per question (37). Each round's records were written and committed before any answer, citation or retrieved chunk of that round's `results.jsonl` was opened. |
 | `fetch_sources.sh` | Downloads the EDGAR documents the expected answers come from. Needs `SEC_USER_AGENT`. |
 | `numparse.py`, `test_numparse.py` | Figure parser used by the mechanical checks, with its tests (`uv run pytest eval`). |
 | `checks.py`, `test_checks.py` | Mechanical checks (context recall, groundedness, consistency) and their tests. `uv run python eval/checks.py` rewrites the two files below. |
-| `checks.jsonl` | One row per run (63). |
-| `consistency.jsonl` | One row per question (21). |
-| `labels.jsonl` | Outcome, cause and one line of evidence per run (63), written by the labeller (a Claude model). |
+| `checks.jsonl` | One row per run (111: 63 in round 1, 48 in round 2). |
+| `consistency.jsonl` | One row per question (37). |
+| `labels.jsonl` | Outcome, cause and one line of evidence per run (111), written by the labeller (a Claude model). |
 | `summarize.py` | Joins labels and checks, rolls runs up to questions, prints the tables in `EVAL.md` and writes `review.jsonl`. |
-| `review.jsonl` | Runs that need human review: every `confident_wrong`, every run where label and mechanical checks disagree, every run with a wrong figure or label in supporting context. |
+| `review.jsonl` | Runs that need human review: every `confident_wrong`, every run where label and mechanical checks disagree, every run with a wrong figure or label in supporting context, and every run the labeller marked as a judgment call. |
 
 ## How `expected.jsonl` was built
 
@@ -33,17 +38,39 @@ and the run metadata (`timestamp`, `model`, `k`). Run date: 2026-11-21.
    filing HTML only. Out-of-corpus references come from Microsoft's FY2026 10-K and Q3 FY2026 10-Q (companyfacts),
    Alphabet's 10-Q and NVIDIA's 8-K of 2026-11-17.
 
+### Round 2
+
+Same steps, on 2026-11-22 (run date 2026-11-22, 03:18 to 03:20 UTC). Only `question`, `category`, `xbrl_reference`
+and `xbrl_note` of `probes/round2/results.jsonl` were read, plus the run metadata. The records were committed in
+`a6e291d` before any round 2 answer was opened. All 26 XBRL references match companyfacts on value, period and
+accession. One note is incomplete for its question (q24): no three-month operating cash flow is tagged for NRC
+Health, but the filing states it in its free cash flow reconciliation.
+
+Round 2 has kinds of answer round 1 did not:
+
+- Computed answers (q22, q25, q26, q28, q30): the figure is in no filing line. The record gives the arithmetic in
+  `computed` and the figures it needs in `inputs`, each with its source lines.
+- Percentages (`unit` and `kind` are `percent`), a share count (`unit` is `shares`) and a name (`kind` is `text`).
+- False premises (q31, q32, q33, and q37 as it turned out): `must_flag` starts with "The premise" and a correct
+  answer has to reject it.
+- `expected_match: "any"`: one of the listed figures is enough (q30: the change in dollars or in percent; q31: the
+  growth rate, the dollar increase or the revenue level).
+
 ## Record fields
 
+- `round`: 1 or 2.
 - `expected_kind`: `answer`, `answer_with_flag` (a correct answer must flag an ambiguity) or `refusal`
   (the answer is not in the corpus, so the only correct response is to say so).
-- `in_corpus`: whether the expected figure is in an ingested filing.
+- `in_corpus`: whether the expected figure is in an ingested filing. "computed from figures in the corpus" means
+  the inputs are in a filing and the answer is not.
 - `expected`: the figure(s). `value` is in dollars (or dollars per share), `quantum` is the precision of the filed
   figure, `as_filed` is the text in the filing.
 - `acceptable_if_labelled`: figures that are right only with the stated label (for example managed basis).
 - `distractors`: wrong figures a misreading would produce, each with the kind of misread it would show.
 - `must_flag`: what a correct answer has to make explicit, or null.
 - `acceptance_rule`: what counts as correct for this question.
+- `inputs`: for a computed answer, the figures it is computed from.
+- `corpus_mentions`: lines of the filings that bear on the question without giving the answer.
 - `xbrl_reference_check`: result of checking the reference in `results.jsonl`.
 
 ## Rules that apply to every question
@@ -67,16 +94,20 @@ MSFT, AMZN and JPM, thousands for CSV and NRC).
 `checks.jsonl`, per run:
 
 - `recall`: `all`, `some` or `none` of the expected in-corpus figures are in a retrieved chunk of the right filing;
-  `n/a` when the expected answer is not in the corpus.
+  `n/a` when the expected answer is not in the corpus. For a computed answer, recall is judged on its `inputs`.
+  `recall_ranks` lists the rank of each of those figures.
 - `expected[].figure_rank`: rank of the first retrieved chunk of the right filing that contains the figure.
   `line_rank`: rank of the first chunk that contains one of the verbatim source lines in `expected.jsonl` (stricter).
   `cited`: whether a chunk holding the figure was cited.
-  `stated`: `scaled` if the answer gives the figure with a scale word or as an exact dollar or per-share amount,
-  `bare` if it only quotes the unscaled table cell, null if it does not give it.
+  `stated`: `scaled` if the answer gives the figure with a scale word, as an exact dollar, per-share or share
+  amount, or as a percentage; `bare` if it only quotes the unscaled table cell; `text` if an expected name is in
+  the answer; null if it does not give it.
+- `inputs[]`: the same fields for the inputs of a computed answer.
+- `expected_stated`: every expected figure is stated, or any one of them when the record says `expected_match: "any"`.
 - `acceptable_stated`, `distractors_stated`: the labelled-only figures and the known wrong figures that the answer
   mentions. A distractor mentioned as context (a prior-year comparison) still shows up here.
 - `grounded`: `yes` if every figure in the answer is in a cited chunk or is derived (a difference, sum, ratio or
-  percentage change of two figures that are); `uncited` if the unsupported figures are all in retrieved chunks the
+  percentage change of two figures that are, or a sum and difference of three); `uncited` if the unsupported figures are all in retrieved chunks the
   answer did not cite; `no` if some figure is in no retrieved chunk; `no_figures` if the answer states none.
   `ungrounded` lists the unsupported figures.
 - `refusal_language`: the opening of the answer says the excerpts lack something.
@@ -85,7 +116,10 @@ MSFT, AMZN and JPM, thousands for CSV and NRC).
 open with the same figure (`same_lead_figure`, compared on three significant digits whatever the scale), and how many
 of the amounts mentioned appear in every run. `consistent` is true when the first two hold.
 
-Known limits: a JPMorgan table headed "in billions" would be read in millions; a figure that happens to equal an
+Known limits: sign is ignored, so a rise and a fall of the same size match; a percentage matches any bare table
+cell with the same number ("54%" and a cell "54"), which makes percentages easy to ground by accident (in q31 the
+check reports two expected figures as retrieved when their source lines were not); a name is matched as a
+substring; a JPMorgan table headed "in billions" would be read in millions; a figure that happens to equal an
 unrelated cell in a cited chunk counts as grounded; the check is per answer, not per sentence, so a figure is
 grounded if any cited chunk has it.
 
@@ -105,9 +139,17 @@ refusal when it gives none of the expected figures, and a hedge when it gives so
 three) or gives the expected figure but leaves the question open. A refusal that truthfully reports a retrieval
 miss is still `false_refusal`: the label describes the system's result, not whether the generator behaved well.
 
-Each `labels.jsonl` row has `outcome`, `cause` (a list, empty for `correct` and `correct_refusal`), `evidence`
-(a verbatim quote from the answer and the source line it was checked against), and where needed `note` and
-`context_issue`. A script checked that every answer quote is verbatim.
+Clarifications added for round 2, after its answers were read:
+
+- Where a question's acceptance rule says what a partial response is (q22: the trailing-twelve-month figure with
+  its label; q31: not accepting the premise without being able to correct it), the rule wins over the convention
+  above. Those runs are `hedged_ok` and carry a `judgment` note.
+- q34 gives two of the three components of the expected total and none of the totals. It is `false_refusal`, as
+  q02 was in round 1 (parts of revenue, no total), and carries a `judgment` note.
+
+Each `labels.jsonl` row has `round`, `outcome`, `cause` (a list, empty for `correct` and `correct_refusal`),
+`evidence` (a verbatim quote from the answer and the source line it was checked against), and where needed `note`,
+`context_issue` and `judgment`. A script checked that every answer quote is verbatim.
 
 ## Label and check disagreements
 
@@ -115,7 +157,8 @@ Each `labels.jsonl` row has `outcome`, `cause` (a list, empty for `correct` and 
 figure was not retrieved, or a figure in it is supported only by an uncited or by no retrieved chunk; it is
 labelled `confident_wrong` or `false_refusal` but states the expected figure; it is labelled a refusal but does not
 open with refusal language, or the reverse; its cause is `retrieval_miss` but every expected figure was retrieved, or
-the reverse; its cause is `memory` but every figure is in a cited chunk.
+the reverse; its cause is `memory` but every figure is in a cited chunk. The refusal-language rule is skipped for
+false-premise questions, where a correct answer opens with "did not".
 
 ## Cause labels (for every run that is not `correct` or `correct_refusal`)
 
