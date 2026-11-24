@@ -88,8 +88,8 @@ Definitions clarified after answers were read:
   labels. A run that gives some of the expected figures is a hedge. If a reviewer prefers to call truthful
   refusals `hedged_ok`, 7 questions (q01, q02, q09, q10, q14, q25, q34) move from `false_refusal` to `hedged_ok`.
   Nothing else changes.
-- Round 2: where a question's own acceptance rule, written before the answers were read, says what a partial
-  response is, the rule wins over that convention. This applies to q22 (the trailing-twelve-month figure given
+- Round 2: where a question's own acceptance rule (which the evaluation prompt required to be committed before
+  any answer was opened) says what a partial response is, the rule wins over that convention. This applies to q22 (the trailing-twelve-month figure given
   with its label) and q31 (the premise not accepted, but not corrected). Both are `hedged_ok`. If a reviewer
   applies the round 1 convention instead, q31 becomes `false_refusal`.
 

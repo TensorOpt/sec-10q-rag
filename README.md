@@ -1,7 +1,8 @@
 # sec-10q-rag
 
 A question-answering system over SEC 10-Q filings, built by a coding agent from a short prompt, then probed with
-questions designed to make it fail, then evaluated against expected answers written before any output was read.
+questions designed to make it fail, then evaluated against expected answers that the evaluation prompt required to be
+written from the question text only and committed before any answer was opened.
 
 ## What this is
 
